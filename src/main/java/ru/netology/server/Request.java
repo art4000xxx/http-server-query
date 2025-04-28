@@ -16,6 +16,7 @@ public class Request {
     private final Map<String, String> headers;
     private final String body;
     private final Map<String, List<String>> queryParams;
+    private final Map<String, List<String>> postParams;
 
     public Request(String method, String path, Map<String, String> headers, String body) {
         this.method = method;
@@ -23,6 +24,7 @@ public class Request {
         this.headers = Collections.unmodifiableMap(new HashMap<>(headers));
         this.body = body;
         this.queryParams = parseQueryParams(path);
+        this.postParams = parsePostParams(body, headers);
     }
 
     private Map<String, List<String>> parseQueryParams(String path) {
@@ -31,6 +33,18 @@ public class Request {
         }
         String query = path.substring(path.indexOf("?") + 1);
         List<NameValuePair> pairs = URLEncodedUtils.parse(query, StandardCharsets.UTF_8);
+        return pairs.stream()
+                .collect(Collectors.groupingBy(
+                        NameValuePair::getName,
+                        Collectors.mapping(NameValuePair::getValue, Collectors.toList())
+                ));
+    }
+
+    private Map<String, List<String>> parsePostParams(String body, Map<String, String> headers) {
+        if (body.isEmpty() || !headers.getOrDefault("Content-Type", "").contains("application/x-www-form-urlencoded")) {
+            return Collections.emptyMap();
+        }
+        List<NameValuePair> pairs = URLEncodedUtils.parse(body, StandardCharsets.UTF_8);
         return pairs.stream()
                 .collect(Collectors.groupingBy(
                         NameValuePair::getName,
@@ -61,5 +75,14 @@ public class Request {
 
     public Map<String, List<String>> getQueryParams() {
         return Collections.unmodifiableMap(queryParams);
+    }
+
+    public String getPostParam(String name) {
+        List<String> values = postParams.get(name);
+        return (values != null && !values.isEmpty()) ? values.get(0) : null;
+    }
+
+    public Map<String, List<String>> getPostParams() {
+        return Collections.unmodifiableMap(postParams);
     }
 }

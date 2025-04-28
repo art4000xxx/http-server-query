@@ -26,6 +26,25 @@ public class Main {
             responseStream.flush();
         });
 
+        server.addHandler("POST", "/messages", (request, responseStream) -> {
+            StringBuilder responseBody = new StringBuilder();
+            responseBody.append("Post Params: ").append(request.getPostParams()).append("\n");
+            String nameParam = request.getPostParam("name");
+            if (nameParam != null) {
+                responseBody.append("Name Param: ").append(nameParam);
+            } else {
+                responseBody.append("No 'name' param provided");
+            }
+
+            String response = "HTTP/1.1 200 OK\r\n" +
+                    "Content-Length: " + responseBody.length() + "\r\n" +
+                    "Connection: close\r\n" +
+                    "\r\n" +
+                    responseBody;
+            responseStream.write(response.getBytes());
+            responseStream.flush();
+        });
+
         server.listen();
     }
 }
