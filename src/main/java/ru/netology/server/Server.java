@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
@@ -51,7 +52,8 @@ public class Server {
     private void handleConnection(Socket socket) {
         try (
                 var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                var out = new BufferedOutputStream(socket.getOutputStream())
+                var out = new BufferedOutputStream(socket.getOutputStream());
+                var rawIn = socket.getInputStream()
         ) {
             String requestLine = in.readLine();
             if (requestLine == null || requestLine.isEmpty()) {
@@ -77,17 +79,18 @@ public class Server {
                 }
             }
 
+            byte[] rawBody = new byte[0];
             StringBuilder body = new StringBuilder();
             if (headers.containsKey("Content-Length")) {
                 int length = Integer.parseInt(headers.get("Content-Length"));
-                char[] buffer = new char[length];
-                int read = in.read(buffer, 0, length);
+                rawBody = new byte[length];
+                int read = rawIn.read(rawBody);
                 if (read != -1) {
-                    body.append(buffer, 0, read);
+                    body.append(new String(rawBody));
                 }
             }
 
-            Request request = new Request(method, fullPath, headers, body.toString());
+            Request request = new Request(method, fullPath, headers, body.toString(), rawBody);
 
             Map<String, Handler> methodHandlers = handlers.get(method);
             if (methodHandlers != null) {

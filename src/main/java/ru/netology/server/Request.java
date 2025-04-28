@@ -1,8 +1,14 @@
 package ru.netology.server;
 
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.FileUploadException;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
@@ -17,14 +23,16 @@ public class Request {
     private final String body;
     private final Map<String, List<String>> queryParams;
     private final Map<String, List<String>> postParams;
+    private final Map<String, List<FileItem>> parts;
 
-    public Request(String method, String path, Map<String, String> headers, String body) {
+    public Request(String method, String path, Map<String, String> headers, String body, byte[] rawBody) {
         this.method = method;
         this.path = path.contains("?") ? path.substring(0, path.indexOf("?")) : path;
         this.headers = Collections.unmodifiableMap(new HashMap<>(headers));
         this.body = body;
         this.queryParams = parseQueryParams(path);
         this.postParams = parsePostParams(body, headers);
+        this.parts = parseMultipart(rawBody, headers);
     }
 
     private Map<String, List<String>> parseQueryParams(String path) {
@@ -50,6 +58,25 @@ public class Request {
                         NameValuePair::getName,
                         Collectors.mapping(NameValuePair::getValue, Collectors.toList())
                 ));
+    }
+
+    private Map<String, List<FileItem>> parseMultipart(byte[] rawBody, Map<String, String> headers) {
+        if (!headers.getOrDefault("Content-Type", "").startsWith("multipart/form-data")) {
+            return Collections.emptyMap();
+        }
+
+        try {
+            DiskFileItemFactory factory = new DiskFileItemFactory();
+            ServletFileUpload upload = new ServletFileUpload(factory);
+            List<FileItem> items = upload.parseRequest(new ByteArrayRequestContext(rawBody, headers));
+            return items.stream()
+                    .collect(Collectors.groupingBy(
+                            FileItem::getFieldName,
+                            Collectors.toList()
+                    ));
+        } catch (FileUploadException e) {
+            return Collections.emptyMap();
+        }
     }
 
     public String getMethod() {
@@ -84,5 +111,14 @@ public class Request {
 
     public Map<String, List<String>> getPostParams() {
         return Collections.unmodifiableMap(postParams);
+    }
+
+    public FileItem getPart(String name) {
+        List<FileItem> items = parts.get(name);
+        return (items != null && !items.isEmpty()) ? items.get(0) : null;
+    }
+
+    public Map<String, List<FileItem>> getParts() {
+        return Collections.unmodifiableMap(parts);
     }
 }

@@ -1,5 +1,7 @@
 package ru.netology.server;
 
+import org.apache.commons.fileupload.FileItem;
+
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 
@@ -31,9 +33,20 @@ public class Main {
             responseBody.append("Post Params: ").append(request.getPostParams()).append("\n");
             String nameParam = request.getPostParam("name");
             if (nameParam != null) {
-                responseBody.append("Name Param: ").append(nameParam);
+                responseBody.append("Name Param: ").append(nameParam).append("\n");
             } else {
-                responseBody.append("No 'name' param provided");
+                responseBody.append("No 'name' param provided\n");
+            }
+
+            responseBody.append("Multipart Parts: ").append(request.getParts().keySet()).append("\n");
+            FileItem filePart = request.getPart("file");
+            if (filePart != null) {
+                responseBody.append("File Part: ").append(filePart.getName());
+                if (!filePart.isFormField()) {
+                    responseBody.append(" (File, Size: ").append(filePart.getSize()).append(" bytes)");
+                }
+            } else {
+                responseBody.append("No 'file' part provided");
             }
 
             String response = "HTTP/1.1 200 OK\r\n" +
